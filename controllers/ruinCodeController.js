@@ -1,18 +1,12 @@
-const genAI = require('../config/gemini');
+const genAI = require("../config/gemini");
 
-const fallbackResponse = {
-  buggyCode: `function calculateSum(arr) {
-    let sum = 0;
-    for(let i = 0; i <= arr.length; i++) {
-      sum += arr[i];
-    }
-    return sum;
-  }`,
-  unoptimizedCode: `function calculateSum(arr) {
-    return arr.toString().split(',').map(Number).reduce((a,b) => a+b);
-  }`,
-  sarcasticReview: "Ah, efficiency! Who needs it? Your code was too fast anyway. 🐌"
-};
+const fallbackResponse = `function calculateSum(arr) {
+  let sum = 0;
+  for(let i = 0; i <= arr.length; i++) {
+    sum += arr[i];
+  }
+  return sum;
+}`;
 
 exports.ruinCode = async (req, res) => {
   try {
@@ -20,30 +14,37 @@ exports.ruinCode = async (req, res) => {
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     const prompt = {
-      contents: [{
-        parts: [{
-          text: `Given this code:\n${code}\n
-            Create a short, sarcastic JSON response with:
+      contents: [
+        {
+          parts: [
             {
-              "buggyCode": "add subtle bugs that break the code",
-              "unoptimizedCode": "make it inefficient but working",
-              "sarcasticReview": "brief sarcastic comment under 50 words"
-            }`
-        }]
-      }]
+              text: `Given this JavaScript code:\n${code}\n
+            Return only the JavaScript code with subtle bugs and inefficiencies.
+            Add JavaScript-specific issues like:
+            - Off-by-one errors
+            - Type coercion bugs
+            - Scope issues
+            - Memory leaks
+            - Callback hell
+            - Async handling problems
+            
+            Return only the code, no explanations or comments.`,
+            },
+          ],
+        },
+      ],
     };
 
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
-    
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    const response = jsonMatch ? JSON.parse(jsonMatch[0]) : fallbackResponse;
-    
-    res.json(response);
+
+    // Clean the response to get only the code
+    const cleanedCode = responseText
+      .replace(/```javascript|```js|```/g, "")
+      .trim();
+
+    res.json({ code: cleanedCode });
   } catch (error) {
-    res.status(500).json({ 
-      error: error.message,
-      details: "Failed to process the code"
-    });
+    res.json({ code: fallbackResponse });
   }
 };

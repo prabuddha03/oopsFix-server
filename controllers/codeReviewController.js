@@ -6,29 +6,36 @@ exports.reviewCode = async (req, res) => {
     const { code } = req.body;
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-    // Execute the code in a sandbox with timeout
-    let codeOutput;
+    // Execute the JavaScript code in a sandbox with timeout
+    let codeOutput = [];
     let executionError;
     try {
       const sandbox = {
         console: {
-          log: (output) => {
-            codeOutput = output;
+          log: (...args) => {
+            // Handle multiple arguments and different types
+            const output = args
+              .map((arg) =>
+                typeof arg === "object" ? JSON.stringify(arg) : String(arg)
+              )
+              .join(" ");
+            codeOutput.push(output);
           },
         },
       };
+
       const script = new vm.Script(code);
       const context = vm.createContext(sandbox);
-      script.runInContext(context, { timeout: 5000 }); // 5 second timeout
+      script.runInContext(context, { timeout: 5000 });
     } catch (error) {
       executionError = error.message;
     }
 
     // Store VM execution results
     const vmResults = {
-      output: codeOutput || null,
+      output: codeOutput.length > 0 ? codeOutput.join("\n") : null,
       error: executionError || null,
-      executionTime: null, // Can add execution time if needed
+      executionTime: null,
     };
 
     const prompt = {
@@ -36,17 +43,19 @@ exports.reviewCode = async (req, res) => {
         {
           parts: [
             {
-              text: `Review this code:\n${code}\n
+              text: `Review this JavaScript code:\n${code}\n
             ${
               executionError
                 ? `Code execution error: ${executionError}`
-                : `Code output: ${codeOutput}`
+                : `Code output: ${
+                    codeOutput.length > 0 ? codeOutput.join("\n") : "No output"
+                  }`
             }
             
             Create a JSON response with these exact fields:
             {
-              "errors": ["error1", "error2"],
-              "suggestions": ["suggestion1", "suggestion2"],
+              "errors": ["List JavaScript-specific errors and bad practices"],
+              "suggestions": ["Suggest JavaScript best practices and improvements"],
               "grade": 85,
               "sarcasticComments": "your comments here",
               "timeComplexity": "O(n)",
@@ -57,7 +66,12 @@ exports.reviewCode = async (req, res) => {
               }
             }
             
-            Include detailed time and space complexity analysis.
+            Focus on JavaScript-specific:
+            - ES6+ features and best practices
+            - JavaScript performance considerations
+            - JavaScript memory management
+            - Common JavaScript pitfalls
+            Include time and space complexity analysis.
             If there are nested loops or recursive calls, explain their impact.
             Consider memory usage of data structures and variables.`,
             },
@@ -99,7 +113,7 @@ exports.reviewCode = async (req, res) => {
       error: error.message,
       details: "Failed to review the code",
       vmResults: {
-        output: codeOutput || null,
+        output: codeOutput.length > 0 ? codeOutput.join("\n") : null,
         error: executionError || null,
         executionTime: null,
       },
