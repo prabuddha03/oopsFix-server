@@ -1,6 +1,5 @@
 const express = require("express");
 const cors = require("cors");
-const { GoogleGenerativeAI } = require("@google/generative-ai");
 const app = express();
 
 require("dotenv").config();
@@ -14,7 +13,7 @@ app.get("/health", (req, res) => {
 });
 
 // API routes
-const apiRoutes = require("./apiroutes");
+const apiRoutes = require("./apiRoutes");
 app.use("/api", apiRoutes);
 
 // Error handling middleware
